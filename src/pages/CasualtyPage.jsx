@@ -17,6 +17,14 @@ export default function CasualtyPage() {
   const [uavCollapsed, setUavCollapsed] = useState(false);
   const [focusedUavId, setFocusedUavId] = useState(null);
 
+  // 1. Centralized color mapping to match CasualtyMap.jsx
+  const triageColors = {
+    red: "#ff4444",
+    yellow: "#ffcc00",
+    green: "#00ff88",
+    black: "#333333"
+  };
+
   return (
     <div className="casualty-page">
 
@@ -76,18 +84,24 @@ export default function CasualtyPage() {
                 .filter(
                   (c) => triageFilter === "all" || c.triage === triageFilter
                 )
-                .map((c) => (
-                  <button
-                    key={c.id}
-                    className={`casualty-btn triage-${c.triage}`}
-                    style={{ "--idColor": c.idColor }}
-                    onMouseEnter={() => setFocusedId(c.id)}
-                    onMouseLeave={() => setFocusedId(null)}
-                  >
-                    <span className="pixel-fill" />
-                    <span className="label">{c.id}</span>
-                  </button>
-                ))}
+                .map((c) => {
+                  // 2. Derive the color from the triage status instead of c.idColor
+                  const activeColor = triageColors[c.triage] || "#ffffff";
+
+                  return (
+                    <button
+                      key={c.id}
+                      className={`casualty-btn triage-${c.triage}`}
+                      // 3. Apply the synchronized color to the CSS variable
+                      style={{ "--idColor": activeColor }}
+                      onMouseEnter={() => setFocusedId(c.id)}
+                      onMouseLeave={() => setFocusedId(null)}
+                    >
+                      <span className="pixel-fill" />
+                      <span className="label">{c.id}</span>
+                    </button>
+                  );
+                })}
             </div>
           </div>
         </div>

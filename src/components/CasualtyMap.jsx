@@ -1,154 +1,119 @@
 import mapboxgl from "mapbox-gl";
 import { useEffect, useRef, useState } from "react";
-import "./CasualtyMap.css";
+import { createPortal } from "react-dom";
 import UavLayer from "./UavLayer";
+import StatusPopup from "./StatusPopup";
+import "./CasualtyMap.css";
 
-mapboxgl.accessToken =
-  "pk.eyJ1IjoiYXl1c2gxMDIiLCJhIjoiY2xycTRtZW4xMDE0cTJtbno5dnU0dG12eCJ9.L9xmYztXX2yOahZoKDBr6g";
+mapboxgl.accessToken = "pk.eyJ1IjoiYXl1c2gxMDIiLCJhIjoiY2xycTRtZW4xMDE0cTJtbno5dnU0dG12eCJ9.L9xmYztXX2yOahZoKDBr6g";
 
 export default function CasualtyMap({
   casualties = [],
   focusedId = null,
   triageFilter = "all",
-
-  /* UAV support */
   uavs = [],
   focusedUavId = null,
 }) {
   const mapRef = useRef(null);
   const mapRefInstance = useRef(null);
   const markers = useRef({});
-
   const [mapReady, setMapReady] = useState(false);
 
-  /* =========================
-     INIT MAP (SAFE)
-  ========================= */
+  // Helper to map triage text to HEX colors for the markers
+  const triageColors = {
+    red: "#ff4444",
+    yellow: "#ffcc00",
+    green: "#00ff88",
+    black: "#333333"
+  };
 
   useEffect(() => {
-    if (mapRefInstance.current || !mapRef.current) return;
-
     const map = new mapboxgl.Map({
       container: mapRef.current,
       style: "mapbox://styles/mapbox/dark-v11",
-      center: [77.1175, 28.7488],
-      zoom: 16,
+      center: [77.1175, 28.7485],
+      zoom: 17,
+      pitch: 45,
     });
 
-    mapRefInstance.current = map;
-
     map.on("load", () => {
+      mapRefInstance.current = map;
       setMapReady(true);
     });
 
-    return () => {
-      map.remove();
-      mapRefInstance.current = null;
-    };
+    return () => map.remove();
   }, []);
-
-  /* =========================
-     CREATE CASUALTY MARKERS
-  ========================= */
 
   useEffect(() => {
     if (!mapReady) return;
-
     const map = mapRefInstance.current;
 
     casualties.forEach((c) => {
-      if (markers.current[c.id]) return;
+      let entry = markers.current[c.id];
+      const activeColor = triageColors[c.triage] || "#ffffff";
 
-      const el = document.createElement("div");
-      el.className = `casualty-marker triage-${c.triage}`;
-      el.style.setProperty("--idColor", c.idColor);
+      if (!entry) {
+        const el = document.createElement("div");
+        el.className = `casualty-marker triage-${c.triage}`;
+        
+        el.innerHTML = `
+          <div class="popup-anchor"></div>
+          <div class="waves">
+            <div class="wave w1"></div>
+            <div class="wave w2"></div>
+          </div>
+          <div class="dot">${c.id.replace("C", "")}</div>
+          <div class="focus-arrow"></div>
+        `;
 
-      el.innerHTML = `
-        <div class="waves">
-          <span class="wave"></span>
-          <span class="wave"></span>
-        </div>
-        <div class="dot">${c.id.replace("C", "")}</div>
-        <div class="focus-arrows">
-          <span class="arrow up"></span>
-          <span class="arrow right"></span>
-          <span class="arrow down"></span>
-          <span class="arrow left"></span>
-        </div>
-      `;
+        const marker = new mapboxgl.Marker(el)
+          .setLngLat([c.lng, c.lat])
+          .addTo(map);
 
-      const marker = new mapboxgl.Marker(el)
-        .setLngLat([c.lng, c.lat])
-        .addTo(map);
+        markers.current[c.id] = { marker, el, anchor: el.querySelector(".popup-anchor") };
+        entry = markers.current[c.id];
+      }
 
-      markers.current[c.id] = { marker, el };
+      // Update the marker color to match the Triage level
+      entry.el.style.setProperty("--idColor", activeColor);
+
+      // Visibility and Layering
+      const isVisible = triageFilter === "all" || c.triage === triageFilter;
+      entry.el.style.display = isVisible ? "block" : "none";
+
+      if (focusedId === c.id) {
+        entry.el.classList.add("focused");
+        entry.marker.getElement().style.zIndex = "999"; 
+      } else {
+        entry.el.classList.remove("focused");
+        entry.marker.getElement().style.zIndex = "1";
+      }
     });
-  }, [casualties, mapReady]);
-
-  /* =========================
-     FILTER + FOCUS
-  ========================= */
+  }, [casualties, mapReady, triageFilter, focusedId]);
 
   useEffect(() => {
-    if (!mapReady) return;
-
-    const map = mapRefInstance.current;
-
-    Object.entries(markers.current).forEach(([id, { el }]) => {
-      el.classList.remove("focused", "hidden");
-
-      const casualty = casualties.find((c) => c.id === id);
-      if (!casualty) return;
-
-      if (triageFilter !== "all" && casualty.triage !== triageFilter) {
-        el.classList.add("hidden");
-        return;
-      }
-
-      if (focusedId && id !== focusedId) {
-        el.classList.add("hidden");
-      }
-
-      if (focusedId === id) {
-        el.classList.add("focused");
-      }
-    });
-
-    if (!focusedId) {
-      map.flyTo({
-        center: [77.1175, 28.7488],
-        zoom: 16,
-        speed: 1.1,
+    if (!mapReady || !focusedId) return;
+    const casualty = casualties.find((c) => c.id === focusedId);
+    if (casualty) {
+      mapRefInstance.current.flyTo({
+        center: [casualty.lng, casualty.lat],
+        zoom: 19,
+        speed: 1.2,
       });
-      return;
     }
-
-    const c = casualties.find((c) => c.id === focusedId);
-    if (!c) return;
-
-    map.flyTo({
-      center: [c.lng, c.lat],
-      zoom: 19,
-      speed: 0.9,
-      curve: 1.3,
-      essential: true,
-    });
-  }, [focusedId, triageFilter, casualties, mapReady]);
-
-  /* =========================
-     RENDER
-  ========================= */
+  }, [focusedId, mapReady, casualties]);
 
   return (
     <>
       <div ref={mapRef} className="map-container" />
 
-      {mapReady && uavs.length > 0 && (
-        <UavLayer
-          map={mapRefInstance.current}
-          uavs={uavs}
-          focusedUavId={focusedUavId}
-        />
+      {focusedId && markers.current[focusedId] && createPortal(
+        <StatusPopup c={casualties.find((cat) => cat.id === focusedId)} />,
+        markers.current[focusedId].anchor
+      )}
+
+      {mapReady && (
+        <UavLayer map={mapRefInstance.current} uavs={uavs} focusedUavId={focusedUavId} />
       )}
     </>
   );
