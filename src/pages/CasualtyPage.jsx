@@ -17,14 +17,6 @@ export default function CasualtyPage() {
   const [uavCollapsed, setUavCollapsed] = useState(false);
   const [focusedUavId, setFocusedUavId] = useState(null);
 
-  // 1. Centralized color mapping to match CasualtyMap.jsx
-  const triageColors = {
-    red: "#ff4444",
-    yellow: "#ffcc00",
-    green: "#00ff88",
-    black: "#333333"
-  };
-
   return (
     <div className="casualty-page">
 
@@ -33,6 +25,7 @@ export default function CasualtyPage() {
         <CasualtyMap
           casualties={casualties}
           focusedId={focusedId}
+          setFocusedId={setFocusedId}
           triageFilter={triageFilter}
           uavs={uavs}
           focusedUavId={focusedUavId}
@@ -42,7 +35,6 @@ export default function CasualtyPage() {
       {/* ================= UI LAYER ================= */}
       <div className="ui-layer">
 
-        {/* UAV DRAWER */}
         <UavDrawer
           uavs={uavs}
           collapsed={uavCollapsed}
@@ -51,17 +43,12 @@ export default function CasualtyPage() {
           setFocusedUavId={setFocusedUavId}
         />
 
-        {/* CASUALTY UI */}
         <div className={`right-ui ${collapsed ? "collapsed" : ""}`}>
-
-          {/* FILTERS */}
           <div className="triage-filters">
             {["red", "yellow", "green", "black", "all"].map((t) => (
               <button
                 key={t}
-                className={`filter-btn ${t} ${
-                  triageFilter === t ? "active" : ""
-                }`}
+                className={`filter-btn ${t} ${triageFilter === t ? "active" : ""}`}
                 onClick={() => setTriageFilter(t)}
               >
                 {t.toUpperCase()}
@@ -69,30 +56,22 @@ export default function CasualtyPage() {
             ))}
           </div>
 
-          {/* DRAWER */}
           <div className="drawer">
-            <button
-              className="drawer-toggle"
-              onClick={() => setCollapsed(!collapsed)}
-            >
+            <button className="drawer-toggle" onClick={() => setCollapsed(!collapsed)}>
               {collapsed ? "‹" : "›"}
             </button>
 
-            {/* CASUALTY LIST */}
             <div className="casualty-list">
               {casualties
-                .filter(
-                  (c) => triageFilter === "all" || c.triage === triageFilter
-                )
+                .filter((c) => triageFilter === "all" || c.triage === triageFilter)
                 .map((c) => {
-                  // 2. Derive the color from the triage status instead of c.idColor
-                  const activeColor = triageColors[c.triage] || "#ffffff";
+                  const activeColor = c.idColor || "#ffffff";
 
                   return (
                     <button
                       key={c.id}
-                      className={`casualty-btn triage-${c.triage}`}
-                      // 3. Apply the synchronized color to the CSS variable
+                      // ADDED: triage-${c.triage} class here to style the triangle via CSS
+                      className={`casualty-btn triage-${c.triage} ${focusedId === c.id ? "active" : ""}`}
                       style={{ "--idColor": activeColor }}
                       onMouseEnter={() => setFocusedId(c.id)}
                       onMouseLeave={() => setFocusedId(null)}
