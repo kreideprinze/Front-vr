@@ -1,7 +1,8 @@
+// vite.config.js
 import { defineConfig } from 'vite'
-import react from '@vitejs/plugin-react-swc'
+import react from '@vitejs/react-vite'
 
-// https://vite.dev/config/
 export default defineConfig({
   plugins: [react()],
+  base: '/Front-DK/', // This must match your GitHub repository name exactly
 })
