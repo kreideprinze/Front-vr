@@ -50,8 +50,12 @@
   width: 320px;
   height: 100%;
   position: relative;
-  overflow: visible;
   z-index: 101;
+
+  /* SCROLL FIX: Set as flex container to manage list height */
+  display: flex;
+  flex-direction: column;
+  overflow: hidden; 
 
   background:
     linear-gradient(
@@ -183,7 +187,28 @@
   flex-direction: column;
   gap: 10px;
 
+  /* SCROLL FIX: Grow to fill drawer and enable scrolling */
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+
   transition: opacity 0.25s ease, transform 0.25s ease;
+
+  /* Subtle scrollbar style */
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
+}
+
+/* Custom scrollbar for Chrome/Edge/Safari */
+.casualty-list::-webkit-scrollbar {
+  width: 5px;
+}
+.casualty-list::-webkit-scrollbar-track {
+  background: transparent;
+}
+.casualty-list::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 10px;
 }
 
 .right-ui.collapsed .casualty-list {
@@ -199,6 +224,7 @@
 .casualty-btn {
   position: relative;
   overflow: hidden;
+  flex-shrink: 0; /* SCROLL FIX: Prevent buttons from squishing */
 
   padding: 12px;
   background: rgba(0,0,0,0.35);
