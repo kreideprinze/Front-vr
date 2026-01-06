@@ -25,16 +25,18 @@ export default function CasualtyPage() {
         <CasualtyMap
           casualties={casualties}
           focusedId={focusedId}
+          setFocusedId={setFocusedId}
           triageFilter={triageFilter}
           uavs={uavs}
           focusedUavId={focusedUavId}
+          // Link map UI (satellite dropdown) to sidebar state
+          isSidebarCollapsed={collapsed} 
         />
       </div>
 
       {/* ================= UI LAYER ================= */}
       <div className="ui-layer">
 
-        {/* UAV DRAWER */}
         <UavDrawer
           uavs={uavs}
           collapsed={uavCollapsed}
@@ -43,17 +45,12 @@ export default function CasualtyPage() {
           setFocusedUavId={setFocusedUavId}
         />
 
-        {/* CASUALTY UI */}
         <div className={`right-ui ${collapsed ? "collapsed" : ""}`}>
-
-          {/* FILTERS */}
           <div className="triage-filters">
             {["red", "yellow", "green", "black", "all"].map((t) => (
               <button
                 key={t}
-                className={`filter-btn ${t} ${
-                  triageFilter === t ? "active" : ""
-                }`}
+                className={`filter-btn ${t} ${triageFilter === t ? "active" : ""}`}
                 onClick={() => setTriageFilter(t)}
               >
                 {t.toUpperCase()}
@@ -61,33 +58,31 @@ export default function CasualtyPage() {
             ))}
           </div>
 
-          {/* DRAWER */}
           <div className="drawer">
-            <button
-              className="drawer-toggle"
-              onClick={() => setCollapsed(!collapsed)}
-            >
+            {/* The handle that toggles the state */}
+            <button className="drawer-toggle" onClick={() => setCollapsed(!collapsed)}>
               {collapsed ? "‹" : "›"}
             </button>
 
-            {/* CASUALTY LIST */}
             <div className="casualty-list">
               {casualties
-                .filter(
-                  (c) => triageFilter === "all" || c.triage === triageFilter
-                )
-                .map((c) => (
-                  <button
-                    key={c.id}
-                    className={`casualty-btn triage-${c.triage}`}
-                    style={{ "--idColor": c.idColor }}
-                    onMouseEnter={() => setFocusedId(c.id)}
-                    onMouseLeave={() => setFocusedId(null)}
-                  >
-                    <span className="pixel-fill" />
-                    <span className="label">{c.id}</span>
-                  </button>
-                ))}
+                .filter((c) => triageFilter === "all" || c.triage === triageFilter)
+                .map((c) => {
+                  const activeColor = c.idColor || "#ffffff";
+
+                  return (
+                    <button
+                      key={c.id}
+                      className={`casualty-btn triage-${c.triage} ${focusedId === c.id ? "active" : ""}`}
+                      style={{ "--idColor": activeColor }}
+                      onMouseEnter={() => setFocusedId(c.id)}
+                      onMouseLeave={() => setFocusedId(null)}
+                    >
+                      <span className="pixel-fill" />
+                      <span className="label">{c.id}</span>
+                    </button>
+                  );
+                })}
             </div>
           </div>
         </div>

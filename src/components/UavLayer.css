@@ -1,3 +1,7 @@
+/* =========================
+   UAV MARKER (SHARP SQUARE)
+========================= */
+
 .uav-marker {
   position: relative;
   width: 40px;
@@ -5,70 +9,79 @@
   pointer-events: none;
 }
 
-
 .uav-rotator {
   position: absolute;
   inset: 0;
-
   transform-origin: 50% 50%;
   transition: transform 0.15s linear;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
-/* Central body */
+/* Central Body - Sharp Square */
 .uav-body {
   position: absolute;
-  inset: 12px;
+  width: 14px;      /* Symmetrical width */
+  height: 14px;     /* Symmetrical height */
   background: var(--uavColor);
-  border-radius: 6px;
-  box-shadow: 0 0 12px rgba(0,0,0,0.6);
+  
+  /* Removed border-radius for sharp edges */
+  border-radius: 0; 
+  
+  box-shadow: 0 0 8px rgba(0,0,0,0.6);
+  z-index: 3;
 }
 
-/* Arms */
+/* DIAGONAL ARMS (X-Configuration) */
 .uav-arm {
   position: absolute;
   background: var(--uavColor);
+  width: 38px;      /* Reaches closer to the edges */
+  height: 2px;      
+  z-index: 1;
 }
 
+/* Diagonal X alignment */
 .uav-arm.h {
-  top: 19px;
-  left: 4px;
-  right: 4px;
-  height: 2px;
+  transform: rotate(45deg);
 }
 
 .uav-arm.v {
-  left: 19px;
-  top: 4px;
-  bottom: 4px;
-  width: 2px;
+  transform: rotate(-45deg);
 }
 
-/* Motors */
+/* MOTORS / PROPELLERS (Sharp circles at tips) */
 .uav-motor {
   position: absolute;
-  width: 6px;
-  height: 6px;
+  width: 8px;
+  height: 8px;
   background: var(--uavColor);
+  border: 1px solid rgba(0,0,0,0.5);
   border-radius: 50%;
+  z-index: 2;
 }
 
-.uav-motor.tl { top: 2px; left: 2px; }
-.uav-motor.tr { top: 2px; right: 2px; }
-.uav-motor.bl { bottom: 2px; left: 2px; }
-.uav-motor.br { bottom: 2px; right: 2px; }
+/* Precise corner placement */
+.uav-motor.tl { top: 0px; left: 0px; }
+.uav-motor.tr { top: 0px; right: 0px; }
+.uav-motor.bl { bottom: 0px; left: 0px; }
+.uav-motor.br { bottom: 0px; right: 0px; }
 
-/* === HEADING CONE === */
+/* === HEADING INDICATOR === */
 .heading-cone {
   position: absolute;
-  top: -14px;
+  top: -10px; 
   left: 50%;
   transform: translateX(-50%);
+  
+  /* Sharp triangle pointer */
   width: 0;
   height: 0;
+  border-left: 6px solid transparent;
+  border-right: 6px solid transparent;
+  border-bottom: 12px solid var(--uavColor);
 
-  border-left: 8px solid transparent;
-  border-right: 8px solid transparent;
-  border-bottom: 14px solid var(--uavColor);
-
-  filter: drop-shadow(0 0 6px rgba(0,0,0,0.6));
+  filter: drop-shadow(0 0 4px rgba(0,0,0,0.8));
+  z-index: 4;
 }

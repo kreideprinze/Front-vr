@@ -1,154 +1,184 @@
 import mapboxgl from "mapbox-gl";
 import { useEffect, useRef, useState } from "react";
-import "./CasualtyMap.css";
+import { createPortal } from "react-dom";
 import UavLayer from "./UavLayer";
+import StatusPopup from "./StatusPopup";
+import "./CasualtyMap.css";
 
-mapboxgl.accessToken =
-  "pk.eyJ1IjoiYXl1c2gxMDIiLCJhIjoiY2xycTRtZW4xMDE0cTJtbno5dnU0dG12eCJ9.L9xmYztXX2yOahZoKDBr6g";
+mapboxgl.accessToken = "pk.eyJ1IjoiYXl1c2gxMDIiLCJhIjoiY2xycTRtZW4xMDE0cTJtbno5dnU0dG12eCJ9.L9xmYztXX2yOahZoKDBr6g";
+
+const DEFAULT_VIEW = {
+  center: [77.1175, 28.7485],
+  zoom: 17,
+  pitch: 0 // Changed from 45 to 0 for Top View
+};
+
+const ESRI_URLS = {
+  satellite: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
+};
 
 export default function CasualtyMap({
   casualties = [],
   focusedId = null,
+  setFocusedId, 
   triageFilter = "all",
-
-  /* UAV support */
   uavs = [],
   focusedUavId = null,
+  isSidebarCollapsed = false
 }) {
   const mapRef = useRef(null);
   const mapRefInstance = useRef(null);
   const markers = useRef({});
-
   const [mapReady, setMapReady] = useState(false);
+  const [hoveredId, setHoveredId] = useState(null);
+  const [mapStyle, setMapStyle] = useState("dark");
 
-  /* =========================
-     INIT MAP (SAFE)
-  ========================= */
-
-  useEffect(() => {
-    if (mapRefInstance.current || !mapRef.current) return;
-
+useEffect(() => {
     const map = new mapboxgl.Map({
       container: mapRef.current,
       style: "mapbox://styles/mapbox/dark-v11",
-      center: [77.1175, 28.7488],
-      zoom: 16,
+      ...DEFAULT_VIEW,
+      maxZoom: 18,     // Add this line to prevent zooming into the "white zone"
+      dragRotate: false,
+      touchZoomRotate: false
     });
 
-    mapRefInstance.current = map;
-
     map.on("load", () => {
+      mapRefInstance.current = map;
       setMapReady(true);
     });
 
-    return () => {
-      map.remove();
-      mapRefInstance.current = null;
-    };
+    return () => map.remove();
   }, []);
 
-  /* =========================
-     CREATE CASUALTY MARKERS
-  ========================= */
+  useEffect(() => {
+    if (!mapReady || !mapRefInstance.current) return;
+    const map = mapRefInstance.current;
+    const layerId = "esri-layer";
+    const sourceId = "esri-source";
+
+    if (map.getLayer(layerId)) map.removeLayer(layerId);
+    if (map.getSource(sourceId)) map.removeSource(sourceId);
+
+    if (mapStyle === "satellite") {
+      map.addSource(sourceId, {
+        type: "raster",
+        tiles: [ESRI_URLS.satellite],
+        tileSize: 256,
+      });
+
+      map.addLayer({
+        id: layerId,
+        type: "raster",
+        source: sourceId,
+        paint: { "raster-fade-duration": 400 }
+      }, "road-label-simple"); 
+    }
+  }, [mapStyle, mapReady]);
 
   useEffect(() => {
     if (!mapReady) return;
-
     const map = mapRefInstance.current;
+    const incomingIds = new Set(casualties.map(c => c.id));
+    
+    Object.keys(markers.current).forEach(id => {
+      if (!incomingIds.has(id)) {
+        markers.current[id].marker.remove();
+        delete markers.current[id];
+      }
+    });
 
     casualties.forEach((c) => {
-      if (markers.current[c.id]) return;
+      let entry = markers.current[c.id];
+      const activeColor = c.idColor || "#ffffff";
 
-      const el = document.createElement("div");
-      el.className = `casualty-marker triage-${c.triage}`;
-      el.style.setProperty("--idColor", c.idColor);
+      if (!entry) {
+        const el = document.createElement("div");
+        el.className = `casualty-marker triage-${c.triage}`;
+        el.innerHTML = `
+          <div class="popup-anchor"></div>
+          <div class="waves">
+            <div class="wave w1"></div>
+            <div class="wave w2"></div>
+          </div>
+          <div class="dot">${c.id.replace("C", "")}</div>
+          <div class="focus-arrow"></div>
+        `;
 
-      el.innerHTML = `
-        <div class="waves">
-          <span class="wave"></span>
-          <span class="wave"></span>
-        </div>
-        <div class="dot">${c.id.replace("C", "")}</div>
-        <div class="focus-arrows">
-          <span class="arrow up"></span>
-          <span class="arrow right"></span>
-          <span class="arrow down"></span>
-          <span class="arrow left"></span>
-        </div>
-      `;
+        el.addEventListener('mouseenter', () => setHoveredId(c.id));
+        el.addEventListener('mouseleave', () => setHoveredId(null));
+        el.addEventListener('click', () => setFocusedId(c.id));
 
-      const marker = new mapboxgl.Marker(el)
-        .setLngLat([c.lng, c.lat])
-        .addTo(map);
+        const marker = new mapboxgl.Marker(el).setLngLat([c.lng, c.lat]).addTo(map);
+        markers.current[c.id] = { marker, el, anchor: el.querySelector(".popup-anchor") };
+        entry = markers.current[c.id];
+      }
 
-      markers.current[c.id] = { marker, el };
+      entry.marker.setLngLat([c.lng, c.lat]);
+      entry.el.style.setProperty("--idColor", activeColor);
+      entry.el.style.display = (triageFilter === "all" || c.triage === triageFilter) ? "block" : "none";
+
+      if (focusedId === c.id || hoveredId === c.id) {
+        entry.el.classList.add("focused");
+        entry.marker.getElement().style.zIndex = "999"; 
+      } else {
+        entry.el.classList.remove("focused");
+        entry.marker.getElement().style.zIndex = "1";
+      }
     });
-  }, [casualties, mapReady]);
+  }, [casualties, mapReady, triageFilter, focusedId, hoveredId]);
 
-  /* =========================
-     FILTER + FOCUS
-  ========================= */
-
+// Updated Focus/FlyTo Logic to prevent ESRI white-screen
   useEffect(() => {
-    if (!mapReady) return;
+    if (!mapReady || !mapRefInstance.current) return;
 
-    const map = mapRefInstance.current;
+    if (focusedId) {
+      const casualty = casualties.find((c) => c.id === focusedId);
+      if (casualty) {
+        // ESRI usually breaks after zoom 18. Mapbox Dark works fine at 19+.
+        const maxSafeZoom = mapStyle === "satellite" ? 18 : 19;
 
-    Object.entries(markers.current).forEach(([id, { el }]) => {
-      el.classList.remove("focused", "hidden");
-
-      const casualty = casualties.find((c) => c.id === id);
-      if (!casualty) return;
-
-      if (triageFilter !== "all" && casualty.triage !== triageFilter) {
-        el.classList.add("hidden");
-        return;
+        mapRefInstance.current.flyTo({
+          center: [casualty.lng, casualty.lat],
+          zoom: maxSafeZoom, 
+          pitch: 0, 
+          speed: 1.2,
+          essential: true
+        });
       }
-
-      if (focusedId && id !== focusedId) {
-        el.classList.add("hidden");
-      }
-
-      if (focusedId === id) {
-        el.classList.add("focused");
-      }
-    });
-
-    if (!focusedId) {
-      map.flyTo({
-        center: [77.1175, 28.7488],
-        zoom: 16,
-        speed: 1.1,
+    } else {
+      mapRefInstance.current.flyTo({
+        ...DEFAULT_VIEW,
+        speed: 1.0,
+        essential: true
       });
-      return;
     }
+  }, [focusedId, mapReady, casualties, mapStyle]); // Added mapStyle to dependencies
 
-    const c = casualties.find((c) => c.id === focusedId);
-    if (!c) return;
-
-    map.flyTo({
-      center: [c.lng, c.lat],
-      zoom: 19,
-      speed: 0.9,
-      curve: 1.3,
-      essential: true,
-    });
-  }, [focusedId, triageFilter, casualties, mapReady]);
-
-  /* =========================
-     RENDER
-  ========================= */
+  const displayId = hoveredId || focusedId;
 
   return (
     <>
       <div ref={mapRef} className="map-container" />
 
-      {mapReady && uavs.length > 0 && (
-        <UavLayer
-          map={mapRefInstance.current}
-          uavs={uavs}
-          focusedUavId={focusedUavId}
-        />
+      {/* Dropdown positioned next to the filters box */}
+      <div className={`map-style-overlay ${isSidebarCollapsed ? "sidebar-collapsed" : "sidebar-open"}`}>
+        <select 
+          className="style-select"
+          value={mapStyle}
+          onChange={(e) => setMapStyle(e.target.value)}
+        >
+          <option value="dark">Dark Map</option>
+          <option value="satellite">Satellite</option>
+        </select>
+      </div>
+
+      {displayId && markers.current[displayId] && createPortal(
+        <StatusPopup c={casualties.find((cat) => cat.id === displayId)} />,
+        markers.current[displayId].anchor
+      )}
+      {mapReady && (
+        <UavLayer map={mapRefInstance.current} uavs={uavs} focusedUavId={focusedUavId} />
       )}
     </>
   );
