@@ -29,6 +29,8 @@ export default function CasualtyPage() {
           triageFilter={triageFilter}
           uavs={uavs}
           focusedUavId={focusedUavId}
+          // Link map UI (satellite dropdown) to sidebar state
+          isSidebarCollapsed={collapsed} 
         />
       </div>
 
@@ -57,6 +59,7 @@ export default function CasualtyPage() {
           </div>
 
           <div className="drawer">
+            {/* The handle that toggles the state */}
             <button className="drawer-toggle" onClick={() => setCollapsed(!collapsed)}>
               {collapsed ? "‹" : "›"}
             </button>
@@ -70,7 +73,6 @@ export default function CasualtyPage() {
                   return (
                     <button
                       key={c.id}
-                      // ADDED: triage-${c.triage} class here to style the triangle via CSS
                       className={`casualty-btn triage-${c.triage} ${focusedId === c.id ? "active" : ""}`}
                       style={{ "--idColor": activeColor }}
                       onMouseEnter={() => setFocusedId(c.id)}
